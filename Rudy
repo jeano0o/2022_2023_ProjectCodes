@@ -1,0 +1,224 @@
+from machine import Timer
+from machine import ADC, Pin
+from machine import Pin, PWM
+from Button import Button
+from time import sleep
+from time import sleep_ms
+from servo import Servo
+import sys
+# Servo print
+SERVO_PIN_NUMBER = 7 # change pin number
+servo_pin = PWM(Pin(SERVO_PIN_NUMBER))
+servo_motor = Servo(servo_pin)
+SERVO_PIN_NUMBER2 = 16# change pin number
+servo_pin2 = PWM(Pin(SERVO_PIN_NUMBER2))
+servo_motor2 = Servo(servo_pin2)
+# Mic pin
+microphone_right = ADC(27)
+microphone_left = ADC(28)
+# motor
+base_freq = 80
+base_duty_cycle = 0
+# create a controllable PWM Pin
+motor_right = PWM(Pin(19))
+motor_left = PWM(Pin(20))
+# create id for the motor
+MOTOR_LEFT = 0
+MOTOR_RIGHT = 1
+speed = 0
+game_state = 0
+“”"
+#Moody Stuff
+# sound_sensor functionality and sound player
+adc = ADC(Pin(26))
+moody_states = [1, 2, 3, 4, 5]
+current_state = 1
+listen_timer = Timer(-1)
+sound_level = 0
+databus = UART(0, baudrate=9600)
+dfplayer = DFPlayer(uart=databus)
+dfplayer.set_volume(10)
+# the start state with the sound level and the sleep time before listening for the different sound levels
+# setting the sound sensor to listen every 3 seconds and give the average of the sound level
+def start_listen():
+    listen_timer.deinit()
+    listen_timer.init(period=3000, mode=Timer.PERIODIC, callback=capture_sound)
+“”"
+sound_level_left = 0
+sound_level_right = 0
+listen_timer = Timer(-1)
+def capture_sound(timer):
+    global sound_level_left, sound_level_right
+    samples_left = []
+    samples_right = []
+    for reads in range(0, 10):
+        samples_left.append(microphone_left.read_u16())
+        samples_right.append(microphone_left.read_u16())
+        sleep_ms(10)
+    # print(samples_left)
+    # print(samples_right)
+    sound_level_left = (sum(samples_left) / len(samples_left))
+    sound_level_right = (sum(samples_right) / len(samples_right))
+    # if current_state == 11:
+    #     current_state = 2
+def start_listen():
+    listen_timer.deinit()
+    listen_timer.init(period=100, mode=Timer.PERIODIC, callback=capture_sound)
+def stop_listen():
+    listen_timer.deinit()
+def change_state(new_state):
+    global game_state, gameRunning
+    print(f”changing state from {game_state} to {new_state}“)
+    if new_state == 0:
+        stop_listen()
+    if new_state == 1:
+        start_listen()
+    if new_state == 2:
+        stop_listen()
+    if new_state == 3:
+        stop_listen()
+    game_state = new_state
+motor_left_speed = 0
+motor_right_speed = 0
+def adjust_motors_speed():
+    change_speed(motor_right_speed, MOTOR_RIGHT)
+    change_speed(motor_left_speed, MOTOR_LEFT)
+    pass
+def listen_right():
+    global motor_right_speed
+    # sound_level = microphone_right.read_u16()
+    print(f”M1: {sound_level_right}“)
+    if(sound_level_right > 10 and sound_level_right <= 20000):
+        #change_speed(20, 1)# put the value corresponding to motor power
+        motor_right_speed = 40000
+        print(‘RIGHT LV 1’)
+        #change_speed(0,1) # return to original state
+    if(sound_level_right > 20000 and sound_level_right <= 30000):
+        #change_speed(30, 1)# put the value corresponding to motor power
+        motor_right_speed = 60000
+        print(‘RIGHT LV 2’)
+        #change_speed(0,1) # return to original state
+    if(sound_level_right > 31000):
+        print(‘right over 20k’)
+        #motor_right_speed = 0
+        print(“rude!“)
+        rudeAction()
+def listen_left():
+    global motor_left_speed
+    # sound_level = microphone_right.read_u16()
+    print(f”M2: {sound_level_left}“)
+    if(sound_level_left > 10 and sound_level_left <= 20000):
+        #change_speed(20, 1)# put the value corresponding to motor power
+        motor_left_speed = 40000
+        print(‘LEFT LV 1’)
+        #change_speed(0,1) # return to original state
+    if(sound_level_left > 20000 and sound_level_left <= 30000):
+        #change_speed(30, 1)# put the value corresponding to motor power
+        motor_left_speed = 60000
+        print(‘LEFT LV 2’)
+        #change_speed(0,1) # return to original state
+    if(sound_level_left > 30000):
+        print(‘right over 20k’)
+        #motor_right_speed = 0
+        print(“rude!“)
+        rudeAction()
+def change_speed(speed, motor_id):
+    if motor_id == MOTOR_RIGHT:
+        motor_right.freq(base_freq)
+        motor_right.duty_u16(speed)
+    if motor_id == MOTOR_LEFT:
+        motor_left.freq(base_freq)
+        motor_left.duty_u16(speed)
+#magnet definition
+def magnet1_action(pin,event) :
+    if event == Button.PRESSED :
+        print(‘magnet triggered’)
+        flagAction()
+def buttonAaction(little_pin, massive_event):
+    global game_state
+    print(‘button A action’)
+    if massive_event == Button.RELEASED:
+        # sleep(1) # some time to let people prepare
+        print(“hey”)
+        # game_state = 1 # this is the button needed to transit from a rest state to active (wheel speen, etc...)
+        change_state(1)
+        return
+# define when the rude state is triggered
+def rudeAction():
+    global motor_left_speed, motor_right_speed
+    global game_state, change_state
+    # if loud == soundthreshold > 40000: # when to loud that trigger the servo “rude flag”
+    # motor_left_speed = 0
+    # motor_right_speed = 0
+    # define servo motor action
+    motor_left_speed = 0
+    motor_right_speed = 0
+    stop_listen()
+    #adjust_motors_speed()
+    sleep(1)
+    servo_motor.goto(0)
+    sleep_ms(150)
+    print(“1 this is middle”)
+    servo_motor.middle()
+    sleep_ms(1500)
+    sleep(1)
+    print(“1 this is using go to 1024—counterclock”)
+    servo_motor.goto(1024)
+    sleep_ms(150)
+    print(“1 this is middle”)
+    servo_motor.middle()
+    sleep_ms(1500)
+    change_state(0)
+    sleep_ms(0)
+def flagAction():
+    global motor_left_speed, motor_right_speed
+    global game_state, gameRunning
+    change_speed(0, MOTOR_RIGHT)
+    change_speed(0, MOTOR_LEFT)
+    stop_listen()
+    #adjust_motors_speed()
+    sleep(1)
+    servo_motor2.goto(1024)
+    sleep_ms(150)
+    print(“2 this is middle”)
+    servo_motor2.middle()
+    sleep_ms(1500)
+    sleep(10)
+    print(“2 this is using go to 1024—counterclock”)
+    servo_motor2.goto(0)
+    sleep_ms(150)
+    print(“2 this is middle”)
+    servo_motor2.middle()
+    sleep_ms(1500)
+    change_state(0)
+    sleep_ms(2)
+buttonA = Button(4, rest_state = False, callback = buttonAaction)
+magnet1 = Button(1, rest_state = True, callback = magnet1_action)
+# states:
+# 0: this is the rest state -> “Rudy” is waitong for somebody to press the button
+# 1: The wheels start to spin and the mics are on
+# 2: The sound is to loud and rude state is triggered
+# 3: Win state is triggered because gthe magnet was reached
+# 4: To much time have passed so Rudy stop to play
+change_state(0)
+listen_timer.deinit()
+while(True):
+    try:
+        if game_state == 0:
+            buttonA.update()
+        if game_state == 1:
+            listen_right()
+            listen_left()
+            adjust_motors_speed()
+            magnet1.update()
+        if game_state == 2:
+            buttonA.update()
+        if game_state == 3:
+            buttonA.update()
+    except KeyboardInterrupt:
+        print()
+        print(“PROGRAM INTERRUPTED”)
+        change_speed(0, MOTOR_RIGHT)
+        change_speed(0, MOTOR_LEFT)
+        stop_listen()
+        sys.exit()
