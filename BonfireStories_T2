@@ -1,0 +1,190 @@
+#include <MatrixHardware_Teensy4_ShieldV5.h>
+#include <SmartMatrix.h>
+
+//SMART MATRIX LIBRARY DEFS
+#define COLOR_DEPTH 24
+const uint16_t WIDTH = 32 * 9;
+const uint16_t HEIGHT = 32 * 1;
+const uint8_t kRefreshDepth = 24;
+const uint8_t kDmaBufferRows = 4;
+const uint8_t kPanelType = SM_PANELTYPE_HUB75_16ROW_MOD8SCAN;
+const uint32_t kMatrixOptions = (SM_HUB75_OPTIONS_NONE);
+const uint8_t kBackgroundLayerOptions = (SM_HUB75_OPTIONS_MATRIXCALC_LOWPRIORITY);
+
+SMARTMATRIX_ALLOCATE_BUFFERS(matrix, WIDTH, HEIGHT, kRefreshDepth, kDmaBufferRows, kPanelType, kMatrixOptions);
+SMARTMATRIX_ALLOCATE_BACKGROUND_LAYER(bg, WIDTH, HEIGHT, COLOR_DEPTH, kBackgroundLayerOptions);
+
+
+// values
+int val_sensor1 = 0;
+int val_sensor2 = 0;
+int val_sensor3 = 0;
+
+byte pin_analog_1 = A17;
+byte pin_analog_2 = A16;
+byte pin_analog_3 = A15;
+
+//Added May 14
+byte pin_audio_in = A10;
+int audio_playing_t1 = 0;
+
+//JTE Variables
+int threshold = (4, 4);
+
+void setup() {
+
+  Serial.begin(115200);
+  // pixels.begin();
+
+  //TO LINK TEENSYS (this is #2)
+
+  pinMode(pin_analog_1, INPUT);
+  pinMode(pin_analog_2, INPUT);
+  pinMode(pin_analog_3, INPUT);
+
+  //Added May 14
+  pinMode(pin_audio_in, INPUT);
+
+
+  //LED Matrix
+  matrix.addLayer(&bg);
+  matrix.begin();
+  matrix.setBrightness(100);
+  bg.enableColorCorrection(true);
+}
+
+//FOR NEW FIRE PIXELS fade in and out
+uint frame = 0;
+
+float x = 0;
+float y = 10;
+float vx = 0.2;
+float vy = 0.5;
+
+void loop() {
+
+  val_sensor1 = analogRead(pin_analog_1);
+  val_sensor2 = analogRead(pin_analog_2);
+  val_sensor3 = analogRead(pin_analog_3);
+
+  // /*
+  Serial.print("Sensor 1: ");
+  Serial.print(val_sensor1);
+  // Serial.print(" cm\t");
+  Serial.print("\t\t Sensor 2: ");
+  Serial.print(val_sensor2);
+  // Serial.print(" cm\t");
+  Serial.print("\t\t Sensor 3: ");
+  Serial.println(val_sensor3);
+  // Serial.println(" cm");
+  // */
+
+  // delay(100);
+
+  /*
+  * STARTING POINTS OF THE LINES
+  */
+
+  int _x1 = 0;
+  int _y1 = 0;
+
+  int _x2 = 0;
+  int _y2 = 0;
+
+  int _x3 = 0;
+  int _y3 = 0;
+
+  /*
+  * ENDING POINTS OF THE LINES 1 matrix
+  */
+
+//Commented Out for the additive color maps to shine
+
+  // int x1 = map(val_sensor1, 1024, 0, _x1, 16);
+  // int y1 = map(val_sensor1, 1024, 0, _y1, 16);
+
+  // int x2 = map(val_sensor2, 1024, 0, _x2, 16);
+  // int y2 = map(val_sensor2, 1024, 0, _y2, 16);
+
+  // int x3 = map(val_sensor3, 1024, 0, _x3, 16);
+  // int y3 = map(val_sensor3, 1024, 0, _y3, 16);
+
+  int brightness1 = map(val_sensor1, 1023, 0, 0, 100);
+  int brightness2 = map(val_sensor2, 1023, 0, 0, 100);
+  int brightness3 = map(val_sensor3, 1023, 0, 0, 100);
+
+
+  // Serial.print("x1: ");
+  // Serial.print(x1);
+  // Serial.print("\t, y1: ");
+  // Serial.println(y1);
+
+  // Serial.print("x2: ");
+  // Serial.print(x2);
+  // Serial.print("\t, y2: ");
+  // Serial.println(y2);
+
+  // Serial.print("x3: ");
+  // Serial.print(x3);
+  // Serial.print("\t, y3: ");
+  // Serial.println(y3);
+
+
+  // !!! use drawPixel() and not bg.drawPixel() !!!
+  // OG DOTS
+  // drawPixel(x1, y1, {7, 60, 0});
+  // drawPixel(x2, y2, {121, 79, 98});
+  // drawPixel(x3, y3, {22, 70, 117});
+
+  delay(50);
+
+  //Firey Background
+  x = x + vx;
+  y = y + vy;
+  if (x >= WIDTH - 1 || x <= 0) {
+    vx = -vx;
+  }
+
+  if (y >= HEIGHT - 1 || y <= 0) {
+    vy = -vy;
+  }
+
+  int r = int((sin(frame * 0.011) + 1.0) * 20) + 30;
+  int g = 0;
+  int b = 0;
+
+  bg.fillScreen({ r, g, b });
+
+  for (int i = 0; i < 400; i++) {
+    bg.drawPixel(random(WIDTH), random(HEIGHT), { random(200, 255), random(100, 150), 0 });
+
+    // bg.fillScreen({ 0, 0, 0 });  // Clear to a color {r,g,b}
+  }
+
+//BACKGROUND PURPLE //PINK //GREEN
+  if (val_sensor1 <= 150 || val_sensor2 <= 150 || val_sensor3 <= 150) {
+    int r = 0;
+    int g = 0;
+    int b = int((sin(frame * 0.011) + 1.0) * 20) + 30;
+
+    bg.fillScreen({brightness1, brightness2, brightness3});
+
+    for (int i = 0; i < 400; i++) {
+      bg.drawPixel(random(WIDTH), random(HEIGHT), {random(200, 255), 0, random(200, 255) });  //GREEN
+    }
+  }
+      bg.swapBuffers();  // The library offers double buffering
+    frame++;
+}
+
+//______________________________________
+
+void drawPixel(int x, int y, const rgb24& color) {
+  static uint8_t y_map[] = {
+    0, 1, 2, 3, 4, 5, 6, 7,          // first 8 rows are ok
+    16, 17, 18, 19, 20, 21, 22, 23,  // swap these rows
+    8, 9, 10, 11, 12, 13, 14, 15,    // ... with these
+    24, 25, 26, 27, 28, 29, 30, 31   // last 8 rows are ok
+  };
+  bg.drawPixel(x, y_map[y], color);
+}
