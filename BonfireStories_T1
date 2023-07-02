@@ -1,0 +1,207 @@
+//AUDIO
+#include <Audio.h>
+#include <Wire.h>
+#include <SPI.h>
+#include <SD.h>
+#include <SerialFlash.h>
+
+// GUItool: begin automatically generated code
+AudioPlaySdWav playSdWav;  //xy=269,139
+
+AudioOutputI2S i2s1;  //xy=579,194
+AudioConnection patchCord1(playSdWav, 0, i2s1, 0);
+AudioConnection patchCord2(playSdWav, 1, i2s1, 1);
+AudioControlSGTL5000 sgtl5000_1;  //xy=385,277
+// GUItool: end automatically generated code
+
+// Use these with the Teensy Audio Shield
+#define SDCARD_CS_PIN 10
+#define SDCARD_MOSI_PIN 7  // Teensy 4 ignores this, uses pin 11
+#define SDCARD_SCK_PIN 14  // Teensy 4 ignores this, uses pin 13
+
+//DISTANCE SENSOR
+#include "Ultrasonic.h"
+
+byte pin_sig_1 = 39;
+byte pin_sig_2 = 38;
+byte pin_sig_3 = 29;
+
+// Values variables
+long dist_1 = 0;  // distance measured by the first sensor
+long dist_2 = 0;  // distance measured by the second sensor
+long dist_3 = 0;  // distance measured by the third sensor
+
+Ultrasonic sensor1(pin_sig_1);
+Ultrasonic sensor2(pin_sig_2);
+Ultrasonic sensor3(pin_sig_3);
+
+int distance_PWM_1 = 0;
+int distance_PWM_2 = 0;
+int distance_PWM_3 = 0;
+
+byte pin_pwm_1 = 33;
+byte pin_pwm_2 = 24;
+byte pin_pwm_3 = 25;
+
+
+//Audio add pins—May 14
+byte pin_audio_out = 28;
+int audio_output = LOW;
+
+//threshold maximum
+int threshold_distance_max = 150;  // cm
+
+//threshold minimum—-where the audio should start
+int threshold_distance_min = 40;  //cm
+
+
+//AUDIO TRACKS
+const char *audio_tracks[] = { "BO_01.WAV", "BO_02.WAV", "BO_03.WAV", "BO_04.WAV", "BO_05.WAV", "BO_06.WAV", "BO_07.WAV", "BO_08.WAV" };  // Make sure names are correct
+const int num_tracks = sizeof(audio_tracks) / sizeof(audio_tracks[0]);
+
+
+//CURRENT TRACK
+int current_track = 0;  // start at the first track
+
+//PLAYED TRACKS
+bool played_tracks[num_tracks] = { false };
+
+//TRIGGER
+bool audio_triggered = false;
+
+//FLAG for playing
+bool audio_playing = false;
+
+//TIMER
+unsigned long time_since_last_trigger = 0;
+
+
+void setup() {
+  Serial.begin(115200);
+
+  //TO LINK TEENSYS (this is #1)
+  pinMode(pin_pwm_1, OUTPUT);
+  pinMode(pin_pwm_2, OUTPUT);
+  pinMode(pin_pwm_3, OUTPUT);
+  //Added May 14
+  pinMode(pin_audio_out, OUTPUT);
+
+  AudioMemory(10);
+  sgtl5000_1.enable();
+  sgtl5000_1.volume(.9);
+
+  SPI.setMOSI(SDCARD_MOSI_PIN);
+  SPI.setSCK(SDCARD_SCK_PIN);
+  if (!SD.begin(SDCARD_CS_PIN)) {
+    while (1) {
+      Serial.println("Unable to access the SD card");
+      delay(500);
+    }
+  }
+}
+
+void loop() {
+
+  static unsigned long last_time_below_threshold_1 = 0;
+  unsigned long current_time = millis();
+
+  dist_1 = sensor1.MeasureInCentimeters();
+  dist_2 = sensor2.MeasureInCentimeters();
+  dist_3 = sensor3.MeasureInCentimeters();
+
+  if (dist_1 > threshold_distance_max) dist_1 = threshold_distance_max;
+  if (dist_2 > threshold_distance_max) dist_2 = threshold_distance_max;
+  if (dist_3 > threshold_distance_max) dist_3 = threshold_distance_max;
+
+  distance_PWM_1 = map(dist_1, 0, threshold_distance_max, 0, 255);
+  distance_PWM_2 = map(dist_2, 0, threshold_distance_max, 0, 255);
+  distance_PWM_3 = map(dist_3, 0, threshold_distance_max, 0, 255);
+
+  analogWrite(pin_pwm_1, distance_PWM_1);
+  analogWrite(pin_pwm_2, distance_PWM_2);
+  analogWrite(pin_pwm_3, distance_PWM_3);
+
+
+  // Print the distance measured by each sensor to the serial monitor
+  Serial.print("Sensor 1: ");
+  Serial.print(dist_1);
+  Serial.print(" cm\t\t");
+  Serial.print("Sensor 2: ");
+  Serial.print(dist_2);
+  Serial.print(" cm\t\t");
+  Serial.print("Sensor 3: ");
+  Serial.print(dist_3);
+  Serial.println(" cm");
+  Serial.println(current_track);
+  Serial.println(audio_playing);
+  Serial.println(audio_output);
+
+  if (audio_playing) {
+    audio_output = true;
+    digitalWrite(pin_audio_out, HIGH);
+  } else {
+    audio_output = false;
+    digitalWrite(pin_audio_out, LOW);
+  }
+
+  // Check if any of the sensors triggered
+
+  if (dist_1 < threshold_distance_min || dist_2 < threshold_distance_min || dist_3 < threshold_distance_min) {
+    // If audio is not already playing
+    if (!audio_playing) {
+      // if (audio_playing == false) {
+      // Play the current track
+      digitalWrite(pin_audio_out, HIGH);
+      playSdWav.play(audio_tracks[current_track]);
+      audio_triggered = true;
+      audio_playing = true;
+      played_tracks[current_track] = true;
+      // Move to the next track
+      current_track++;
+      if (current_track >= num_tracks) {
+        // If we have played all tracks, start again from the beginning
+        current_track = 0;
+      }
+    }
+
+    // Reset the timer if any of the sensors are triggered
+    last_time_below_threshold_1 = current_time;
+  } else {
+    // If no sensors have triggered for 3 seconds and audio is playing
+    if (audio_playing && current_time - last_time_below_threshold_1 > 3000) {
+      // Stop the audio and reset the flags
+      playSdWav.stop();
+      audio_triggered = false;
+      audio_playing = false;
+      digitalWrite(pin_audio_out, LOW);
+    }
+  }
+
+    // NEW ADD May 11
+
+    if (playSdWav.isPlaying() == false && audio_triggered == true) {
+    // Reset the audio triggered flag and set the audio_playing flag to false
+    audio_triggered = false;
+    audio_playing = false;
+  }
+
+
+  // Check if all tracks have been played
+  bool all_played = true;
+  for (int i = 0; i < num_tracks; i++) {
+    if (played_tracks[i] == false) {
+      all_played = false;
+      break;
+    }
+  }
+
+  // If all tracks have been played, reset the played_tracks array
+  if (all_played == true) {
+    //added one line below
+    // current_track = 0;
+    for (int i = 0; i < num_tracks; i++) {
+      played_tracks[i] = false;
+    }
+  }
+
+}
