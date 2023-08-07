@@ -1,0 +1,145 @@
+// Group: Leyla, Jean Louise
+// light sensors, accelerometer, encoder
+
+/* Keystrokes:
+​
+  lift_up: 'a'
+  put_down: 'b'
+​
+  cover_open: 'c'
+  cover_closed: 'd'
+​
+  start_pouring: 'e'
+  stop_pouring: 'f'
+​
+  next_message: 'g'
+  previous_message: 'h'
+​
+*/
+
+#include <BleKeyboard.h>  // https://github.com/T-vK/ESP32-BLE-Keyboard
+BleKeyboard keyboard;
+
+// 3D accelerometer
+#include "SparkFunLIS3DH.h" // https://github.com/sparkfun/SparkFun_LIS3DH_Arduino_Library
+#include "Wire.h"
+
+LIS3DH acc; //Default constructor is I2C, addr 0x19.
+
+// Pinout
+byte pin_lift_up = 13;  // light resistor for lift up
+byte pin_cover_open = 27;  // light resistor for the cover
+byte pin_A = 26;  // encoder A
+byte pin_B = 25;  // encoder B
+
+// Thresholds
+int threshold_lift_up = 3800; // value to detect lift up
+int threshold_cover_open = 3200; // value to detect cover open
+int threshold_hysteresis = 100;
+float threshold_inclination = 0.5;  // value to detect the inclination
+float threshold_inclination_hysteresis = 0.1;
+
+
+// Values
+int lift_up = 0; 
+int cover_open = 0;
+float inclination = 0;
+long encoder = 0;
+
+// status
+bool old_lift_up = false;
+bool old_cover_open = false;
+bool old_inclination = false;
+bool last_state_clk = false; // encoder A pin
+bool current_state_clk = false; // encoder A pin
+
+
+void setup() {
+  keyboard.setName("Spill the Tea");  // change the name with your project
+  keyboard.begin();
+
+  // pinout
+  pinMode(pin_A, INPUT);
+  pinMode(pin_B, INPUT);
+
+  Serial.begin(9600);
+
+  acc.begin();
+
+  // encoder
+  last_state_clk = digitalRead(pin_A);
+
+}
+void loop() {
+
+  if(keyboard.isConnected()) {
+
+    lift_up = analogRead(pin_lift_up);
+    cover_open = analogRead(pin_cover_open);
+
+
+    // Serial.println(lift_up);
+
+    // Lift up check
+    if(lift_up < threshold_lift_up-threshold_hysteresis && !old_lift_up) {   // lifting up
+      keyboard.print('a');
+      Serial.println("Lift up!");
+      old_lift_up = true;
+    }
+    if(lift_up > threshold_lift_up+threshold_hysteresis && old_lift_up) {   // putting down
+      keyboard.print('b');
+      Serial.println("Put down!");
+      old_lift_up = false;
+    }
+
+
+    // Cover check
+    if(cover_open < threshold_cover_open-threshold_hysteresis && !old_cover_open) {   // cover open
+      keyboard.print('c');
+      Serial.println("Cover open!");
+      old_cover_open = true;
+    }
+    if(cover_open > threshold_cover_open+threshold_hysteresis && old_cover_open) {   // cover closed
+      keyboard.print('d');
+      Serial.println("Cover closed!");
+      old_cover_open = false;
+    }
+    
+
+    // Inclination
+    inclination = acc.readFloatAccelX();  // change the axis if needed once assembled (X, Y, Z)
+    
+    //Serial.println(inclination);
+
+    if(inclination > threshold_inclination + threshold_inclination_hysteresis && !old_inclination) {
+      keyboard.print('e');
+      Serial.println("Start pouring!");
+      old_inclination = true;
+    }
+    
+    if(inclination < threshold_inclination - threshold_inclination_hysteresis && old_inclination) {
+      keyboard.print('f');
+      Serial.println("Stop pouring!");
+      old_inclination = false;
+    }
+
+
+    // Encoder
+    current_state_clk = digitalRead(pin_A);
+
+    if(current_state_clk != last_state_clk && current_state_clk == 1) {
+      if(digitalRead(pin_B) != current_state_clk) {
+        keyboard.print('g');
+        Serial.println("Next message!");
+      }
+      else {
+        keyboard.print('h');
+        Serial.println("Previous message!");
+      }
+    }
+
+    last_state_clk = current_state_clk;
+
+  }
+
+}
