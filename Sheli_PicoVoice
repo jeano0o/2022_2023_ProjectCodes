@@ -1,0 +1,283 @@
+//MP3 tester—code
+#include "Arduino.h"
+#include "DFRobotDFPlayerMini.h"
+DFRobotDFPlayerMini myDFPlayer;
+
+#include <Picovoice_EN.h>
+
+#include "params.h"
+
+#define MEMORY_BUFFER_SIZE (70 * 1024)
+
+static const char *ACCESS_KEY = "l4toKEtFvDMLWz6ji4STfasRcpUOAqHeTYrC2waOTt0UqtmcEnSOHA==";
+
+static pv_picovoice_t *handle = NULL;
+
+static int8_t memory_buffer[MEMORY_BUFFER_SIZE] __attribute__((aligned(16)));
+
+static const float PORCUPINE_SENSITIVITY = 0.75f;
+static const float RHINO_SENSITIVITY = 0.5f;
+
+static void wake_word_callback(void) {
+  Serial.println("Wake word detected!");
+}
+
+static void inference_callback(pv_inference_t *inference) {
+  Serial.println("{");
+  Serial.print("    is_understood : ");
+  Serial.println(inference->is_understood ? "true" : "false");
+  if (inference->is_understood) {
+    String intent = inference->intent;
+    Serial.print("    intent : ");
+    Serial.println(inference->intent);
+
+    //CODE FOR INTENT PLAYLIST HERE
+
+    //TEMPERATURE
+    if (intent == "temperature") {
+      myDFPlayer.play(16);
+      Serial.println("I'm working, Temperature");
+    }
+
+    //ANTIBIOTIC
+    if (intent == "antibiotic") {
+      myDFPlayer.play(22);
+      Serial.println("I'm working, Antibiotic");
+    }
+
+    //EMERGENCY
+    if (strcmp(inference->intent, "emergency") == 0) {
+      myDFPlayer.play(23);
+      Serial.println("I'm working, Emergency");
+    }
+
+
+
+    //****
+
+    if (inference->num_slots > 0) {
+      Serial.println("    slots : {");
+
+      for (int32_t i = 0; i < inference->num_slots; i++) {
+        Serial.println("        ");
+        Serial.println(inference->intent);
+        String slot = inference->values[i];
+        //  MATTEO NOTES: FOR SLOTS YOU CAN CREATE IF STATEMENTS HERE INSIDE
+
+
+        //BASELINES*
+        if (intent == "baselines") {
+          Serial.println(intent);
+          if (slot == "temperature") {
+            Serial.print("temperature!!");
+            myDFPlayer.play(7);
+            delay(500);
+          } else if (slot == "white blood cells") {
+            Serial.println("white blood cells!");
+            myDFPlayer.play(8);
+            delay(500);
+          } else if (slot == "blood pressure") {
+            Serial.println("blood pressure!");
+            myDFPlayer.play(5);
+            delay(500);
+          } else if (slot == "activity") {
+            Serial.println("activity!");
+            myDFPlayer.play(6);
+            delay(500);
+          } else if (slot == "heart rate") {
+            Serial.println("heart rate!");
+            myDFPlayer.play(4);
+            delay(500);
+          }
+        }
+
+        //DIRECTIONS
+        if (intent == "directions") {
+          Serial.println(intent);
+          if (slot == "urgent care") {
+            Serial.print("urgent care!!");
+            myDFPlayer.play(1);
+            delay(500);
+          } else if (slot == "hospital") {
+            Serial.print("hospital!");
+            myDFPlayer.play(3);
+            delay(500);
+          } else if (slot == "pharmacy") {
+            Serial.print("pharmacy!!!!!!");
+            myDFPlayer.play(2);
+            delay(500);
+          }
+        }
+
+        
+        //CALL*
+        if (intent == "call") {
+          Serial.println(intent);
+          if (slot == "mother") {
+            Serial.println("mother!!!");
+            myDFPlayer.play(9);
+            delay(500);
+          } else if (slot == "ambulance") {
+            Serial.println("ambulance!!!");
+            myDFPlayer.play(15);
+            delay(500);
+          } else if (slot == "ma ma") {
+            Serial.println("ma ma!!!");
+            myDFPlayer.play(9);
+            delay(500);
+          } else if (slot == "dad") {
+            Serial.println("dad!!!");
+            myDFPlayer.play(10);
+            delay(500);
+          } else if (slot == "brother") {
+            Serial.println("brother!!");
+            myDFPlayer.play(11);
+            delay(500);
+          } else if (slot == "partner") {
+            Serial.println("partner!!");
+            myDFPlayer.play(11);
+            delay(500);
+          } else if (slot == "doctor") {
+            Serial.println("doctor!!");
+            myDFPlayer.play(13);
+            delay(500);
+          } else if (slot == "friend") {
+            Serial.println("friend!!");
+            myDFPlayer.play(12);
+            delay(500);
+          } else if (slot == "sister") {
+            Serial.println("siste!!r");
+            myDFPlayer.play(14);
+            delay(500);
+          } else if (slot == "mom") {
+            Serial.println("mom!!");
+            myDFPlayer.play(9);
+            delay(500);
+          }
+        }
+
+        //OTHERAILMENTS*
+        if (intent == "otherailments") {
+          Serial.println(intent);
+          if (slot == "blood in urine") {
+            Serial.println("blood in urine!!");
+            myDFPlayer.play(21);
+            delay(500);
+          } else if (slot == "pain during urination") {
+            Serial.println("pain during urination!!");
+            myDFPlayer.play(20);
+            delay(500);
+          } else if (slot == "light headed") {
+            Serial.println("light headed!!");
+            myDFPlayer.play(19);
+            delay(500);
+          } else if (slot == "dizzy") {
+            Serial.println("dizzy!!");
+            myDFPlayer.play(19);
+            delay(500);
+          } else if (slot == "cough") {
+            Serial.println("cough!!");
+            myDFPlayer.play(20);
+            delay(500);
+          } else if (slot == "sore throat") {
+            Serial.println("sore throat!!");
+            myDFPlayer.play(18);
+            delay(500);
+          } else if (slot == "stomach ache") {
+            Serial.println("stomach ache!!");
+            myDFPlayer.play(20);
+            delay(500);
+          } else if (slot == "headache") {
+            Serial.println("headache!!");
+            myDFPlayer.play(17);
+            delay(500);
+          }
+        }
+
+        Serial.print(" : ");
+        Serial.println(inference->values[i]);
+      }
+      Serial.println("    }");
+    }
+  } else {
+    //  MATTEO NOTES: HERE YOU CAN PLACE THE CODE IF THE INFERENCE IS NOT UNDERSTOOD
+
+    Serial.println("I'm not getting what you want to say...");
+    myDFPlayer.play(26);
+  }
+  Serial.println("}\n");
+
+  pv_inference_delete(inference);
+}
+
+
+void setup() {
+  Serial1.begin(9600);
+  Serial.begin(19200);
+
+  //start the MP3
+  if (!myDFPlayer.begin(Serial1)) {
+    while (true)
+      ;
+  }
+  myDFPlayer.volume(30);  //Set volume value. From 0 to 30
+  delay(500);
+  //myDFPlayer.play(1);
+
+  while (!Serial)
+    ;
+
+  pv_status_t status = pv_audio_rec_init();
+  if (status != PV_STATUS_SUCCESS) {
+    Serial.print("Audio init failed with ");
+    Serial.println(pv_status_to_string(status));
+    while (1)
+      ;
+  }
+
+  status = pv_picovoice_init(
+    ACCESS_KEY,
+    MEMORY_BUFFER_SIZE,
+    memory_buffer,
+    sizeof(KEYWORD_ARRAY),
+    KEYWORD_ARRAY,
+    PORCUPINE_SENSITIVITY,
+    wake_word_callback,
+    sizeof(CONTEXT_ARRAY),
+    CONTEXT_ARRAY,
+    RHINO_SENSITIVITY,
+    1.0,
+    true,
+    inference_callback,
+    &handle);
+  if (status != PV_STATUS_SUCCESS) {
+    Serial.print("Picovoice init failed with ");
+    Serial.println(pv_status_to_string(status));
+    while (1)
+      ;
+  }
+
+  const char *rhino_context = NULL;
+  status = pv_picovoice_context_info(handle, &rhino_context);
+  if (status != PV_STATUS_SUCCESS) {
+    Serial.print("retrieving context info failed with");
+    Serial.println(pv_status_to_string(status));
+    while (1)
+      ;
+  }
+  Serial.println("Wake word: Hi Shelly");
+  Serial.println(rhino_context);
+}
+
+void loop() {
+  const int16_t *buffer = pv_audio_rec_get_new_buffer();
+  if (buffer) {
+    const pv_status_t status = pv_picovoice_process(handle, buffer);
+    if (status != PV_STATUS_SUCCESS) {
+      Serial.print("Picovoice process failed with ");
+      Serial.println(pv_status_to_string(status));
+      while (1)
+        ;
+    }
+  }
+}
